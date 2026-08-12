@@ -30,20 +30,22 @@ class OrganizationsController < ApplicationController
     end
 
     org_id = params[:id]
-    search_parameters = { organization: org_id }
-    search_parameters["service-category"] = params[:category] if params[:category].present?
+    category = params[:category]
 
-    bundle = get_cp_client.search(FHIR::HealthcareService, search: { parameters: search_parameters }).resource
-    services = bundle&.entry&.map(&:resource)&.compact || []
+    # Program/service-specific capacity first: scope the query to the SDOH
+    # category of the request. If the target advertises no service in that
+    # category, fall back to its general capacity rather than reporting unknown
+    # -- the IG treats "capacity to assess" and "program specific capacity" as
+    # two flavours of the same inquiry.
+    extension = capacity_extension_for(org_id, category)
+    extension ||= capacity_extension_for(org_id, nil) if category.present?
 
-    # Prefer the first service that actually carries a capacity extension.
-    extension = services.filter_map { |s| s.extension&.find { |e| e.url == CAPACITY_EXTENSION_URL } }.first
     capacity_status = extension&.extension&.find { |e| e.url == CAPACITY_STATUS_SUB_EXTENSION_URL }
     code = capacity_status&.valueCodeableConcept&.coding&.first&.code
     capacity = CAPACITY_CODE_MAP[code] || "unknown"
 
-    Rails.logger.info("[CHECK_CAPACITY] org=#{org_id} category=#{params[:category].inspect} " \
-                      "services=#{services.size} raw_code=#{code.inspect} capacity=#{capacity}")
+    Rails.logger.info("[CHECK_CAPACITY] org=#{org_id} category=#{category.inspect} " \
+                      "raw_code=#{code.inspect} capacity=#{capacity}")
 
     render json: { capacity: capacity }
   rescue => e
@@ -72,6 +74,19 @@ class OrganizationsController < ApplicationController
   end
 
   private
+
+  # Returns the first SDOHCC capacity status extension advertised by the given
+  # organization, optionally scoped to an SDOH service category. nil when the
+  # organization has no matching service carrying the extension.
+  def capacity_extension_for(org_id, category)
+    parameters = { organization: org_id }
+    parameters["service-category"] = category if category.present?
+
+    bundle = get_cp_client.search(FHIR::HealthcareService, search: { parameters: parameters }).resource
+    services = bundle&.entry&.map(&:resource)&.compact || []
+
+    services.filter_map { |s| s.extension&.find { |e| e.url == CAPACITY_EXTENSION_URL } }.first
+  end
 
   def org_contact
     [
