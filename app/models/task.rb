@@ -2,8 +2,8 @@ class Task
   include ModelHelper
 
   attr_reader :id, :status, :focus, :owner_reference, :owner_name, :requester_name,
-              :requester_resource, :patient_name, :patient_resource, :outcome, :consent,
-              :outcome_type, :authored_on, :status_reason, :fhir_resource
+              :requester_resource, :patient_name, :patient_resource, :outputs, :inputs,
+              :consent, :authored_on, :status_reason, :fhir_resource
 
   def initialize(fhir_task, cp_client)
     @id = fhir_task.id
@@ -19,7 +19,11 @@ class Task
         get_fhir_resource(FHIR::Organization, fhir_task.requester, cp_client) :
         get_fhir_resource(FHIR::PractitionerRole, fhir_task.requester, cp_client)
     remove_client_instances(@requester_resource)
-    @outcome = get_outcome(fhir_task.output&.first, cp_client)
+    @outputs = build_io_entries(fhir_task.output, cp_client)
+    # Inputs are parsed but their references are deliberately not resolved: no
+    # view renders Task.input yet, and resolving one would cost a server read
+    # per entry on every dashboard refresh. Pass the client here when one does.
+    @inputs = build_io_entries(fhir_task.input, nil)
     @consent = get_consent(@focus&.fhir_resource, cp_client)
     @authored_on = fhir_task.authoredOn&.to_date
     @status_reason = fhir_task.statusReason&.text
@@ -28,14 +32,36 @@ class Task
     remove_client_instances(@patient_resource)
   end
 
+  # Task.output entries under the resulting-activity code: what was done.
+  def performed_activity_outputs
+    outputs.select(&:performed_activity?)
+  end
+
+  # Task.output entries under the additional-content code: enrollment status,
+  # assessments, goals, conditions and the like.
+  def additional_content_outputs
+    outputs.select(&:additional_content?)
+  end
+
+  # Task.input entries under the additional-content code.
+  def additional_content_inputs
+    inputs.select(&:additional_content?)
+  end
+
+  # The first resulting-activity output. Kept so callers written against the
+  # single-outcome API keep working while they move to #outputs.
+  def outcome
+    performed_activity_outputs.first&.then { |entry| entry.resource || entry.value }
+  end
+
+  def outcome_type
+    performed_activity_outputs.first&.type_display
+  end
+
   private
 
-  def get_outcome(outcome, cp_client)
-    return if outcome.nil?
-
-    @outcome_type = outcome.type&.coding&.first&.code&.titleize
-    fhir_outcome = get_fhir_resource(FHIR::Procedure, outcome.valueReference, cp_client)
-    Procedure.new(fhir_outcome) if fhir_outcome
+  def build_io_entries(entries, cp_client)
+    Array(entries).filter_map { |entry| TaskIoEntry.build(entry, cp_client) }
   end
 
   def get_consent(focus, cp_client)
