@@ -28,6 +28,35 @@ rails](https://guides.rubyonrails.org/getting_started.html#creating-a-new-rails-
     environment variable: `PORT=3333 bundle exec rails s`
 * Navigate to `http://localhost:3000` in your browser
 
+## Running with Docker
+A `docker-compose.yml` is provided for running the application in a container:
+
+```
+docker compose up -d --build
+docker compose logs -f app
+```
+
+The application is served on `http://localhost:3000`.
+
+**A code change requires `--build`.** The compose file defines no bind mount, and the
+`Dockerfile` copies the source in and precompiles assets at image build time. Editing a
+file on disk therefore has no effect on a running container until the image is rebuilt:
+
+```
+docker compose up -d --build
+```
+
+To publish the application on a different host port without modifying the tracked compose
+file, create an untracked `docker-compose.override.yml` next to it. Compose reads it
+automatically and it is git-ignored:
+
+```yaml
+services:
+  app:
+    ports: !override
+      - "3001:3000"
+```
+
 ## Usage
 See [the usage
 documentation](https://github.com/Gravity-SDOHCC/sdoh_referral_source_client/blob/master/docs/usage.md)
