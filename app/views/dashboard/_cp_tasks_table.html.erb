@@ -64,9 +64,24 @@
               </td>
               <td>
                 <% if type == "completed" %>
-                  <% if referral.outputs.present? %>
-                    <% referral.outputs.each_with_index do |output, index| %>
-                      <% if index.positive? %>, <% end %>
+                  <%# The enrollment status the CBO closed the referral with %>
+                  <%# leads the cell; enrollment.html makes the coordination %>
+                  <%# platform the Intermediary that passes it on. %>
+                  <% enrollment = referral.enrollment_status %>
+                  <% if enrollment.present? %>
+                    <%= link_to "#fhir-resource-modal-#{enrollment.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
+                      <span class="badge <%= enrollment_status_badge_class(enrollment.enrollment_status_code) %>">
+                        <%= enrollment.enrollment_status_display %>
+                      </span>
+                    <% end %>
+                    <% content_for :modals do %>
+                      <%= render "shared/fhir_resource_modal", resource: enrollment.fhir_resource %>
+                    <% end %>
+                  <% end %>
+                  <% other_outputs = Array(referral.outputs).reject { |output| enrollment.present? && output.resource == enrollment } %>
+                  <% if other_outputs.present? %>
+                    <% other_outputs.each_with_index do |output, index| %>
+                      <% if index.positive? || enrollment.present? %>, <% end %>
                       <% if output.resource.blank? %>
                         <span class="small-text"><%= [output.type_display, output.value].compact.join(": ") %></span>
                       <% elsif output.resource_type == "Procedure" %>
@@ -81,7 +96,7 @@
                         <% end %>
                       <% end %>
                     <% end %>
-                  <% else %>
+                  <% elsif enrollment.blank? %>
                     --
                   <% end %>
                 <% elsif type == "active" %>

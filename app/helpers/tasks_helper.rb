@@ -23,6 +23,18 @@ module TasksHelper
   # with an HTML error page would otherwise put the whole page in the toast.
   MAX_ERROR_BODY_LENGTH = 300
 
+  # Badge colours for SDOHCC-ValueSetEnrollmentStatus. Enrolled reads as done,
+  # a waitlist as something still outstanding, not enrolled as neither.
+  ENROLLMENT_STATUS_BADGE_CLASSES = {
+    "enrolled" => "bg-success",
+    "not-enrolled" => "bg-secondary",
+    "not-enrolled-on-waitlist" => "bg-warning text-dark",
+  }.freeze
+
+  def enrollment_status_badge_class(code)
+    ENROLLMENT_STATUS_BADGE_CLASSES.fetch(code, "bg-light text-dark border")
+  end
+
   def save_cp_tasks(tasks)
     Rails.cache.write(cp_tasks_key, tasks, expires_in: 1.day)
   end
