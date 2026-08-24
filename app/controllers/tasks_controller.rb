@@ -99,10 +99,14 @@ class TasksController < ApplicationController
         [msg, t.id]
       end
     else
-      [false, "Failed to fetch referral tasks. Status: #{response.response[:code]} - #{response.response[:body]}"]
+      # `response` is not in scope here; referencing it raised a NameError on
+      # every poll against a server fetch_tasks could not read, which is what
+      # turned a bad server selection into a wedged dashboard.
       Rails.logger.error("Unable to fetch tasks: #{result}")
+
+      render json: { error: result } and return
     end
-    ActionCable.server.broadcast "notifications", { cp_task_notifications: @cp_task_notifications.to_json, ehr_task_notifications: @ehr_task_notifications.to_json }
+    ActionCable.server.broadcast "notifications", { cp_task_notifications: (@cp_task_notifications || []).to_json, ehr_task_notifications: (@ehr_task_notifications || []).to_json }
     render json: {
       active_cp_tasks: render_to_string(partial: "dashboard/cp_tasks_table", locals: { referrals: @active_cp_tasks, type: "active" }),
       completed_cp_tasks: render_to_string(partial: "dashboard/cp_tasks_table", locals: { referrals: @completed_cp_tasks, type: "completed" }),
