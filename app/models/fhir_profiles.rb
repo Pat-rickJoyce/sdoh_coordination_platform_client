@@ -26,4 +26,11 @@ module FhirProfiles
   ADDITIONAL_CONTENT_DISPLAY = "Additional Content".freeze
   RESULTING_ACTIVITY_CODE = "resulting-activity".freeze
   RESULTING_ACTIVITY_DISPLAY = "Resulting Activity".freeze
+
+  # SDOHCC-CodeSystemTemporaryCodes concept that SDOHCC-ObservationProgramEnrollmentStatus
+  # fixes category[enrollment] to. Task.output:AdditionalContent carries
+  # assessments, screening responses, goals, conditions and questionnaire
+  # responses as well as enrollment status, so the category is what identifies
+  # an enrollment status Observation among them.
+  PROGRAM_ENROLLMENT_CATEGORY_CODE = "program-enrollment".freeze
 end

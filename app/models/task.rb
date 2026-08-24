@@ -48,6 +48,22 @@ class Task
     inputs.select(&:additional_content?)
   end
 
+  # The Enrollment Status Observation the CBO closed the referral with, if there
+  # is one.
+  #
+  # enrollment.html, referral-triggered workflow: the CBO points at the
+  # Enrollment Status Observation from Task.output, and the coordination
+  # platform is the Intermediary that carries it up to the EHR-facing Task. The
+  # reference arrives in the AdditionalContent slice, which is shared with
+  # assessments, goals and conditions, so the Observation's own category is what
+  # identifies it.
+  def enrollment_status
+    additional_content_outputs
+      .map(&:resource)
+      .compact
+      .find { |resource| resource.is_a?(Observation) && resource.program_enrollment? }
+  end
+
   # The first resulting-activity output. Kept so callers written against the
   # single-outcome API keep working while they move to #outputs.
   def outcome
