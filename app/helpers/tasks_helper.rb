@@ -9,6 +9,61 @@ module TasksHelper
     "not-enrolled-on-waitlist" => "bg-warning text-dark",
   }.freeze
 
+  # The assessment procedures that make a referral a referral for further
+  # assessment.
+  #
+  # rffa.html: "ServiceRequest.code: This field specifies that the object of
+  # the request is an assessment procedure ... This CodeableConcept is what
+  # differentiates a request to 'assess for food insecurity' from a request to
+  # 'provide food'."
+  #
+  # SDOHCC-ServiceRequest binds code to US Core Procedure Codes (required) and
+  # adds an extensible additional binding per SDOH category. The domain-specific
+  # codes here are members of those VSAC value sets, version 20240604: Food
+  # Insecurity Service Requests
+  # (http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1247.11) and
+  # Housing Instability Service Requests (...1.4.1247.45). The two general codes
+  # are members of the food, housing and transportation value sets alike.
+  #
+  # This list decides how a referral is displayed and nothing else. It must not
+  # be used to choose ServiceRequest.intent: filler-order follows from the
+  # referral being indirect (refer-1, refer-2), not from an assessment being
+  # what was asked for.
+  ASSESSMENT_SERVICE_CODES = {
+    "710824005" => "Assessment of health and social care needs",
+    "1085651000000100" => "Assessment of social care needs",
+    "1002224003" => "Assessment for food insecurity",
+    "1148447008" => "Assessment for housing insecurity",
+    # Not a member of the housing value set above, and no longer offered by the
+    # referral source client for that reason. Recognised here because referrals
+    # that use it already exist and still have to read as assessments.
+    "225340009" => "Housing assessment",
+  }.freeze
+
+  # Badge colours for the resource types a completed referral can come back
+  # with: Procedure under Task.output:PerformedActivityReference, and everything
+  # SDOHCC-TaskForReferralManagement lets Task.output:AdditionalContent point at.
+  OUTCOME_TYPE_BADGE_CLASSES = {
+    "Procedure" => "bg-primary",
+    "QuestionnaireResponse" => "bg-info text-dark",
+    "Observation" => "bg-secondary",
+    "Condition" => "bg-danger",
+    "Goal" => "bg-success",
+    "CarePlan" => "bg-dark",
+  }.freeze
+
+  # Is this the assessment kind of referral? Reads ServiceRequest.code, which is
+  # the only thing that distinguishes it from a request for a service.
+  def assessment_referral?(service_request)
+    Array(service_request&.fhir_resource&.code&.coding).any? do |coding|
+      coding.system == FhirProfiles::SNOMED_CT_SYSTEM && ASSESSMENT_SERVICE_CODES.key?(coding.code)
+    end
+  end
+
+  def outcome_type_badge_class(resource_type)
+    OUTCOME_TYPE_BADGE_CLASSES.fetch(resource_type, "bg-light text-dark border")
+  end
+
   def enrollment_status_badge_class(code)
     ENROLLMENT_STATUS_BADGE_CLASSES.fetch(code, "bg-light text-dark border")
   end

@@ -36,6 +36,12 @@
                 <% else %>
                   <%= referral.focus&.description|| "--"  %>
                 <% end %>
+                <%# A referral for further assessment is distinguished only by %>
+                <%# ServiceRequest.code being an assessment procedure (rffa.html). %>
+                <% if assessment_referral?(referral.focus) %>
+                  <span class="badge bg-warning text-dark"
+                        title="Referral for further assessment: the requested procedure is an assessment">Assessment</span>
+                <% end %>
               </td>
               <td><%= referral.focus&.priority || "-" %></td>
               <td>
@@ -123,12 +129,22 @@
                       <% if output.resource.blank? %>
                         <span class="small-text"><%= [output.type_display, output.value].compact.join(": ") %></span>
                       <% elsif output.resource_type == "Procedure" %>
-                        <%= link_to output.type_display, "#referral-procedure-modal-#{output.id}", data: { bs_toggle: "modal" } %>
+                        <%= link_to "#referral-procedure-modal-#{output.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
+                          <span class="badge <%= outcome_type_badge_class(output.resource_type) %>"><%= output.resource_type %></span>
+                        <% end %>
                         <% content_for :modals do %>
                           <%= render "dashboard/procedure_modal", resource: output.resource %>
                         <% end %>
                       <% else %>
-                        <%= link_to "#{output.type_display} (#{output.resource_type})", "#fhir-resource-modal-#{output.id}", data: { bs_toggle: "modal" } %>
+                        <%# Every other outcome type an assessment can come back %>
+                        <%# with - a QuestionnaireResponse, an Observation %>
+                        <%# Assessment or Screening Response, a Condition, a Goal, %>
+                        <%# a CarePlan - is badged by its resource type and opened %>
+                        <%# in shared/_fhir_resource_modal, which renders whatever %>
+                        <%# the referral target sent. %>
+                        <%= link_to "#fhir-resource-modal-#{output.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
+                          <span class="badge <%= outcome_type_badge_class(output.resource_type) %>"><%= output.resource_type %></span>
+                        <% end %>
                         <% content_for :modals do %>
                           <%= render "shared/fhir_resource_modal", resource: output.resource.fhir_resource %>
                         <% end %>
