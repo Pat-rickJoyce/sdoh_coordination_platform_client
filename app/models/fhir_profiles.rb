@@ -15,6 +15,11 @@ module FhirProfiles
   # SDOHCC Procedure
   PROCEDURE = "http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-Procedure".freeze
 
+  # --- External code systems ---
+
+  # SNOMED CT, the system the assessment procedure codes below come from.
+  SNOMED_CT_SYSTEM = "http://snomed.info/sct".freeze
+
   # --- SDOH Clinical Care code system ---
 
   # SDOHCC CodeSystem Temporary Codes
