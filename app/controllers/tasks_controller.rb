@@ -2,6 +2,10 @@ class TasksController < ApplicationController
   before_action :require_cp_client
   before_action :get_cbo_organizations, only: [:poll_tasks]
 
+  # Server-assigned metadata on the source resource, which describes that
+  # resource on that server and not the copy being created here.
+  SERVER_ASSIGNED_META = %w[versionId lastUpdated].freeze
+
   def update_task
     cp_client = get_cp_client
     cached_cp_tasks = Rails.cache.read(cp_tasks_key)
@@ -115,27 +119,90 @@ class TasksController < ApplicationController
 
   private
 
+  # The coordination platform is the Intermediary of the indirect referral
+  # patterns, so what it posts to the referral target is a *derived* request,
+  # not the referral source's own. referral_workflow.md tags both patterns as
+  # conformance requirements and asks for the same three things in each --
+  # refer-1 (indirect, "Coordination Platform SHALL requirements handling
+  # indirect referral tasks") and refer-2 (indirect referral light):
+  #
+  #   1. Create a local copy of, or proxy, all relevant referenced resources
+  #      from the referral source
+  #   2. Create ServiceRequest(s) with ServiceRequest.intent value
+  #      "filler-order" and ServiceRequest.basedOn references the original
+  #      referral source ServiceRequest(s)
+  #   3. Create Task(s) ... that reference the referral source Task(s) via
+  #      Task.partOf
+  #
+  # basedOn, partOf and the local copy were already here. The intent was not:
+  # "original-order" says this platform originated the request, which is what
+  # the referral source did.
   def create_cp_task_service_request(ehr_task, ehr_request)
     cp_client = get_cp_client
     # Creating CP request
-    cp_request = ehr_request
+    cp_request = derive(FHIR::ServiceRequest, ehr_request)
     cp_request.basedOn = [{ reference: "ServiceRequest/#{ehr_request.id}" }]
-    cp_request.intent = "original-order"
-    cp_request.id = nil
+    cp_request.intent = "filler-order"
     result_cp_request = cp_client.create(cp_request).resource
     # Creating CP task
-    cp_task = ehr_task
+    cp_task = derive(FHIR::Task, ehr_task)
     cp_task.partOf = [{ reference: "Task/#{ehr_task.id}" }]
     cp_task.status = "requested"
     cp_task.authoredOn = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S.%3NZ")
-    # TODO cp_task.requester = {reference: "Organization/#{current_user.id}", display: current_user.name}
-    cp_task.requester = ehr_task.owner
+    cp_task.requester = coordination_platform_reference
     cp_task.owner = {
       "reference": "Organization/#{params[:cbo_organization_id]}",
       "display": Rails.cache.read(organizations_key)&.find { |o| o.id == params[:cbo_organization_id] }&.name,
     }
     cp_task.focus = { reference: "ServiceRequest/#{result_cp_request.id}" }
-    cp_task.id = nil
     cp_client.create(cp_task).resource
+  end
+
+  # A derived resource is built from the source's data, never from the source
+  # object.
+  #
+  # `cp_request = ehr_request` bound a second name to the same FHIR::Model, so
+  # every assignment below it -- `intent`, `basedOn`, `id = nil` -- was made to
+  # the resource the caller was still holding and passing on. The Task was
+  # worse: `cp_task.requester = ehr_task.owner` read a field that
+  # `cp_task.owner =` overwrote two lines later, so the requester was only ever
+  # the platform's own Organization because the demo data happens to own the
+  # referral source's Task to the platform.
+  #
+  # meta.profile is kept -- the copy claims the same SDOHCC profiles -- and the
+  # source server's version and timestamp are dropped with the id.
+  def derive(fhir_class, source)
+    attributes = source.to_hash.except("id")
+    meta = attributes["meta"].is_a?(Hash) ? attributes["meta"].except(*SERVER_ASSIGNED_META) : nil
+    if meta.present?
+      attributes["meta"] = meta
+    else
+      attributes.delete("meta")
+    end
+
+    fhir_class.new(attributes)
+  end
+
+  # The requester of the derived Task is this coordination platform: refer-1
+  # makes the platform the party asking the referral target to do the work, and
+  # SDOHCC-TaskForReferralManagement constrains requester (1..1) to
+  # Reference(SDOHCC PractitionerRole | US Core Organization), so the
+  # platform's own Organization is what goes there.
+  def coordination_platform_reference
+    org_id = current_user_id
+    raise "This session has no coordination platform organization to author the derived Task" if org_id.blank?
+
+    { reference: "Organization/#{org_id}", display: coordination_platform_name(org_id) }.compact
+  end
+
+  # Display only; a reference with no display is still conformant, so an
+  # unreadable Organization must not stop the referral being passed on.
+  def coordination_platform_name(org_id)
+    Rails.cache.fetch("#{session_id}_cp_organization_name", expires_in: 1.day) do
+      get_cp_client.read(FHIR::Organization, org_id).resource&.name
+    end
+  rescue => e
+    Rails.logger.warn("Unable to read the coordination platform Organization #{org_id}: #{e.message}")
+    nil
   end
 end
