@@ -82,7 +82,45 @@ class TaskIoEntry
     resource&.id || resource_id
   end
 
+  # What the referenced resource actually says, for a table cell that would
+  # otherwise read "Additional Content (QuestionnaireResponse)". A completed
+  # assessment comes back as several resources at once, and the reader needs to
+  # tell a food insecurity Condition from a PRAPARE response without opening
+  # each modal in turn.
+  def resource_label
+    fhir_resource = resource&.fhir_resource
+    return if fhir_resource.nil?
+
+    text =
+      case fhir_resource
+      when FHIR::Goal then codeable_display(fhir_resource.description)
+      when FHIR::CarePlan then fhir_resource.title.presence || codeable_display(fhir_resource.category&.first)
+      when FHIR::QuestionnaireResponse then questionnaire_display(fhir_resource)
+      else codeable_display(fhir_resource.code)
+      end
+
+    text.presence
+  end
+
   private
+
+  def codeable_display(codeable_concept)
+    return if codeable_concept.blank?
+
+    coding = Array(codeable_concept.coding).first
+    codeable_concept.text.presence || coding&.display.presence || coding&.code
+  end
+
+  # QuestionnaireResponse.questionnaire is a canonical URL. Resolving it would
+  # be one more read per outcome on a table that already reads every referenced
+  # resource, so the last segment is spaced out instead:
+  # ".../SDOHCC-QuestionnairePRAPARE" reads as "Questionnaire PRAPARE".
+  def questionnaire_display(fhir_resource)
+    segment = fhir_resource.questionnaire.to_s.split("|").first.to_s.split("/").reject(&:blank?).last
+    return if segment.blank?
+
+    segment.sub(/\ASDOHCC-/, "").gsub(/([a-z])([A-Z])/, '\1 \2')
+  end
 
   # The temporary-codes coding is the one the profile discriminates on; fall
   # back to the first coding so an off-spec entry still describes itself.

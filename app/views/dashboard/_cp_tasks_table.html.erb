@@ -108,6 +108,7 @@
                         <%# the referral target sent. %>
                         <%= link_to "#fhir-resource-modal-#{output.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
                           <span class="badge <%= outcome_type_badge_class(output.resource_type) %>"><%= output.resource_type %></span>
+                          <%= output.resource_label %>
                         <% end %>
                         <% content_for :modals do %>
                           <%= render "shared/fhir_resource_modal", resource: output.resource.fhir_resource %>
