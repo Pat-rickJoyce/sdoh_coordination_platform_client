@@ -95,6 +95,7 @@
                       <% elsif output.resource_type == "Procedure" %>
                         <%= link_to "#referral-procedure-modal-#{output.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
                           <span class="badge <%= outcome_type_badge_class(output.resource_type) %>"><%= output.resource_type %></span>
+                          <%= output.resource_label %>
                         <% end %>
                         <% content_for :modals do %>
                           <%= render "dashboard/procedure_modal", resource: output.resource %>
