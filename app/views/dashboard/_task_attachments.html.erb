@@ -1,0 +1,28 @@
+<%# Task.input:AdditionalContent - the clinical context the referral source
+     attached to the referral. referral_workflow.html describes the capability
+     ("the provider may attach additional content relevant for the care of the
+     individual through the SDOHCC Task resource") without ever naming the
+     slice or its code; the additional-content code and the unconstrained
+     Reference(Resource) come from SDOHCC-TaskForReferralManagement, which is
+     why any resource type can turn up here. %>
+<% attachments = referral.additional_content_inputs %>
+<% if attachments.present? %>
+  <% attachments.each_with_index do |attachment, index| %>
+    <% if index.positive? %>, <% end %>
+    <% if attachment.resource.blank? %>
+      <%# Sent, but not readable from here: name it rather than drop it. %>
+      <span class="small-text"><%= [attachment.display_type, attachment.value].compact.join(": ") %></span>
+    <% else %>
+      <% modal_id = "task-attachment-modal-#{referral.id}-#{attachment.id}" %>
+      <%= link_to "##{modal_id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
+        <span class="badge <%= outcome_type_badge_class(attachment.resource_type) %>"><%= attachment.resource_type %></span>
+        <%= attachment.resource_label %>
+      <% end %>
+      <% content_for :modals do %>
+        <%= render "shared/fhir_resource_modal", resource: attachment.resource.fhir_resource, modal_id: modal_id %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% else %>
+  --
+<% end %>

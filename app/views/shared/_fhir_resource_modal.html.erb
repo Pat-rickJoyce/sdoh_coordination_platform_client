@@ -1,10 +1,16 @@
 <!-- dashboard/_fhir_resource_modal.html.erb -->
 
-<div class="modal fade" id="fhir-resource-modal-<%= resource.id %>" tabindex="-1" aria-labelledby="fhir-resource-modal-label-<%= resource.id %>" aria-hidden="true">
+<%# The modal's id defaults to the resource's own, which is what every caller %>
+<%# that shows a resource once per row wants. A caller that can show the same %>
+<%# resource twice on one page - a Consent that is both ServiceRequest %>
+<%# supportingInfo and Task additional content - passes its own id instead, so %>
+<%# the two do not collide. %>
+<% modal_id = local_assigns.fetch(:modal_id, "fhir-resource-modal-#{resource.id}") %>
+<div class="modal fade" id="<%= modal_id %>" tabindex="-1" aria-labelledby="<%= modal_id %>-label" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content fw-bold">
       <div class="modal-header">
-        <h5 class="modal-title" id="fhir-resource-modal-label-<%= resource.id %>"><%= "#{resource.resourceType}/#{resource.id}" %></h5>
+        <h5 class="modal-title" id="<%= modal_id %>-label"><%= "#{resource.resourceType}/#{resource.id}" %></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">

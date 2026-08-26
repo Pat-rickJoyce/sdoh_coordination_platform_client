@@ -12,6 +12,7 @@
             <th scope="col">Requester</th>
             <th scope="col">Patient</th>
             <th scope="col">Consent</th>
+            <th scope="col">Attachments</th>
             <% if type == "completed" %>
               <th scope="col">Outcomes</th>
             <% end %>
@@ -105,6 +106,9 @@
                 <% else %>
                   --
                 <% end %>
+              </td>
+              <td>
+                <%= render "dashboard/task_attachments", referral: referral %>
               </td>
               <td>
                 <% if type == "completed" %>

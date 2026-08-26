@@ -20,10 +20,10 @@ class Task
         get_fhir_resource(FHIR::PractitionerRole, fhir_task.requester, cp_client)
     remove_client_instances(@requester_resource)
     @outputs = build_io_entries(fhir_task.output, cp_client)
-    # Inputs are parsed but their references are deliberately not resolved: no
-    # view renders Task.input yet, and resolving one would cost a server read
-    # per entry on every dashboard refresh. Pass the client here when one does.
-    @inputs = build_io_entries(fhir_task.input, nil)
+    # Task.input:AdditionalContent carries the clinical context the referral
+    # source attached to the referral, and the Attachments cell opens each one,
+    # so unlike before these references are resolved.
+    @inputs = build_io_entries(fhir_task.input, cp_client)
     @consent = get_consent(@focus&.fhir_resource, cp_client)
     @authored_on = fhir_task.authoredOn&.to_date
     @status_reason = fhir_task.statusReason&.text
