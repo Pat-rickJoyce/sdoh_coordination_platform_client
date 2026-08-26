@@ -27,10 +27,16 @@
               <span class="fw-semibold">Performed Date:</span>
               <span class="small-text"><%= resource.performed_date&.to_date %></span>
             </div>
-            <div class="label-value">
-              <span class="fw-semibold">Addresses:</span>
-              <span class="small-text">Condition/<%= resource.problem&.split("/").last %></span>
-            </div>
+            <%# reasonReference is 0..*: a Procedure for a referral with no %>
+            <%# problem recorded has none, and `problem&.split("/").last` %>
+            <%# only guarded the split - nil.last raised and took the %>
+            <%# dashboard down with it. %>
+            <% if resource.problem.present? %>
+              <div class="label-value">
+                <span class="fw-semibold">Addresses:</span>
+                <span class="small-text">Condition/<%= resource.problem.split("/").last %></span>
+              </div>
+            <% end %>
           </div>
         </div>
       </div>
