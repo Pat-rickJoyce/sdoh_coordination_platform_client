@@ -26,7 +26,7 @@ class TasksController < ApplicationController
         elsif status == "in-progress"
           cp_client.update(task, task.id)
         elsif status == "rejected"
-          task.statusReason = { text: params[:status_reason] }
+          task.statusReason = FHIR::CodeableConcept.new(text: params[:status_reason])
           cp_client.update(task, task.id)
         elsif status == "completed"
           cp_task = cached_cp_tasks.map(&:fhir_resource).find { |t| t.partOf.first&.reference&.include?(task.id) }
@@ -147,17 +147,17 @@ class TasksController < ApplicationController
     owner = cbo_organization_reference
     # Creating CP request
     cp_request = derive(FHIR::ServiceRequest, ehr_request)
-    cp_request.basedOn = [{ reference: "ServiceRequest/#{ehr_request.id}" }]
+    cp_request.basedOn = [FHIR::Reference.new(reference: "ServiceRequest/#{ehr_request.id}")]
     cp_request.intent = "filler-order"
     result_cp_request = cp_client.create(cp_request).resource
     # Creating CP task
     cp_task = derive(FHIR::Task, ehr_task)
-    cp_task.partOf = [{ reference: "Task/#{ehr_task.id}" }]
+    cp_task.partOf = [FHIR::Reference.new(reference: "Task/#{ehr_task.id}")]
     cp_task.status = "requested"
     cp_task.authoredOn = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S.%3NZ")
     cp_task.requester = requester
     cp_task.owner = owner
-    cp_task.focus = { reference: "ServiceRequest/#{result_cp_request.id}" }
+    cp_task.focus = FHIR::Reference.new(reference: "ServiceRequest/#{result_cp_request.id}")
     cp_client.create(cp_task).resource
   end
 
@@ -195,7 +195,7 @@ class TasksController < ApplicationController
     org_id = current_user_id
     raise "This session has no coordination platform organization to author the derived Task" if org_id.blank?
 
-    { reference: "Organization/#{org_id}", display: coordination_platform_name(org_id) }.compact
+    FHIR::Reference.new(reference: "Organization/#{org_id}", display: coordination_platform_name(org_id))
   end
 
   # The community based organization the referral is being forwarded to. Read
@@ -204,10 +204,10 @@ class TasksController < ApplicationController
     org_id = params[:cbo_organization_id]
     raise "Select the community based organization the referral is being sent to" if org_id.blank?
 
-    {
-      "reference": "Organization/#{org_id}",
-      "display": Rails.cache.read(organizations_key)&.find { |o| o.id == org_id }&.name,
-    }
+    FHIR::Reference.new(
+      reference: "Organization/#{org_id}",
+      display: Rails.cache.read(organizations_key)&.find { |o| o.id == org_id }&.name,
+    )
   end
 
   # Display only; a reference with no display is still conformant, so an
