@@ -139,6 +139,12 @@ class TasksController < ApplicationController
   # the referral source did.
   def create_cp_task_service_request(ehr_task, ehr_request)
     cp_client = get_cp_client
+    # Everything that can fail without touching the server is resolved first.
+    # The derived pair is two creates, and the requester was being read between
+    # them: a session that expired in that window left a ServiceRequest on the
+    # server with no Task pointing at it and no way to find it again.
+    requester = coordination_platform_reference
+    owner = cbo_organization_reference
     # Creating CP request
     cp_request = derive(FHIR::ServiceRequest, ehr_request)
     cp_request.basedOn = [{ reference: "ServiceRequest/#{ehr_request.id}" }]
@@ -149,11 +155,8 @@ class TasksController < ApplicationController
     cp_task.partOf = [{ reference: "Task/#{ehr_task.id}" }]
     cp_task.status = "requested"
     cp_task.authoredOn = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S.%3NZ")
-    cp_task.requester = coordination_platform_reference
-    cp_task.owner = {
-      "reference": "Organization/#{params[:cbo_organization_id]}",
-      "display": Rails.cache.read(organizations_key)&.find { |o| o.id == params[:cbo_organization_id] }&.name,
-    }
+    cp_task.requester = requester
+    cp_task.owner = owner
     cp_task.focus = { reference: "ServiceRequest/#{result_cp_request.id}" }
     cp_client.create(cp_task).resource
   end
@@ -193,6 +196,18 @@ class TasksController < ApplicationController
     raise "This session has no coordination platform organization to author the derived Task" if org_id.blank?
 
     { reference: "Organization/#{org_id}", display: coordination_platform_name(org_id) }.compact
+  end
+
+  # The community based organization the referral is being forwarded to. Read
+  # before the first create for the same reason as the requester.
+  def cbo_organization_reference
+    org_id = params[:cbo_organization_id]
+    raise "Select the community based organization the referral is being sent to" if org_id.blank?
+
+    {
+      "reference": "Organization/#{org_id}",
+      "display": Rails.cache.read(organizations_key)&.find { |o| o.id == org_id }&.name,
+    }
   end
 
   # Display only; a reference with no display is still conformant, so an
