@@ -96,7 +96,15 @@ class TaskIoEntry
       when FHIR::Goal then codeable_display(fhir_resource.description)
       when FHIR::CarePlan then fhir_resource.title.presence || codeable_display(fhir_resource.category&.first)
       when FHIR::QuestionnaireResponse then questionnaire_display(fhir_resource)
-      else codeable_display(fhir_resource.code)
+      when FHIR::Consent then codeable_display(Array(fhir_resource.category).first)
+      when FHIR::DocumentReference then fhir_resource.description.presence || codeable_display(fhir_resource.type)
+      else
+        # Task.input:AdditionalContent.value[x] is Reference(Resource) with no
+        # targetProfile, so anything can arrive here and not every resource type
+        # has a code element - FHIR::Consent has category, scope and provision
+        # and no code at all. Label what can be labelled; the rest falls back to
+        # the resource type in the caller.
+        codeable_display(fhir_resource.code) if fhir_resource.respond_to?(:code)
       end
 
     text.presence
