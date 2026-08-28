@@ -90,9 +90,8 @@ class Task
     resource_id = ref&.reference_id
     return if resource_id.blank?
 
-    fhir_resource = cp_client.read(fhir_class, resource_id).resource
-    # sometimes for some reason read returns FHIR::Bundle
-    fhir_resource = fhir_resource&.entry&.first&.resource if fhir_resource.is_a?(FHIR::Bundle)
-    fhir_resource
+    # Through ResourceReader: the same Patient, Consent and Organization belong
+    # to referral after referral on one page.
+    ResourceReader.read(cp_client, fhir_class, resource_id)
   end
 end

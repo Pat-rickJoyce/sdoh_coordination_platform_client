@@ -203,9 +203,7 @@ class TaskIoEntry
     end
 
     Rails.logger.info("Task #{type_code} entry: reading #{resource_type}/#{resource_id}")
-    fhir_resource = fhir_client.read(fhir_class, resource_id).resource
-    # sometimes for some reason read returns FHIR::Bundle
-    fhir_resource = fhir_resource&.entry&.first&.resource if fhir_resource.is_a?(FHIR::Bundle)
+    fhir_resource = ResourceReader.read(fhir_client, fhir_class, resource_id)
     fhir_resource if fhir_resource.is_a?(fhir_class)
   end
 
@@ -216,13 +214,15 @@ class TaskIoEntry
     fhir_class if fhir_class.is_a?(Class) && fhir_class <= FHIR::Model
   end
 
-  # This client models Procedure and Observation, the two resources its tables
-  # render. Goal, Condition, QuestionnaireResponse and CarePlan additional
-  # content still resolve, as raw FHIR, rather than being dropped.
+  # This client models Procedure, Observation and QuestionnaireResponse, the
+  # three resources its tables and the referral drawer render. Goal, Condition
+  # and CarePlan additional content still resolve, as raw FHIR, rather than
+  # being dropped.
   def wrap(fhir_resource)
     case resource_type
     when "Procedure" then Procedure.new(fhir_resource)
     when "Observation" then Observation.new(fhir_resource)
+    when "QuestionnaireResponse" then QuestionnaireResponse.new(fhir_resource)
     else GenericResource.new(fhir_resource)
     end
   end
