@@ -1,0 +1,154 @@
+<%# Referral intake. Sections are the ones an intake screen has - referral,
+     problem list, screening, assessments, goals - and each is omitted when the
+     referral did not carry it. The FHIR resources themselves are listed once,
+     at the foot, rather than in the reading path. %>
+<% detail = ReferralDetail.new(referral) %>
+<% patient = referral.patient_resource %>
+<% address = Array(patient&.address).first %>
+<% contact = Array(patient&.telecom).first %>
+<div class="offcanvas offcanvas-end" tabindex="-1" id="referral-detail-<%= referral.id %>" style="width: 720px;">
+
+  <div class="px-4 py-3 d-flex align-items-start gap-3" style="background:#12303a;color:#fff;">
+    <div class="d-flex flex-wrap align-items-baseline gap-3" style="flex:1 1 auto; min-width:0;">
+    <span class="fw-bold" style="font-size:17px;"><%= referral.patient_name %></span>
+    <% if patient&.birthDate.present? %>
+      <span class="small-text" style="color:#b6ccd3;">DOB <span class="fw-semibold text-white"><%= patient.birthDate %></span><%= " (#{age_in_years(parse_birth_date(patient.birthDate))}y)" if parse_birth_date(patient.birthDate) %></span>
+    <% end %>
+    <% if patient&.gender.present? %><span class="small-text" style="color:#b6ccd3;">Sex <span class="fw-semibold text-white"><%= patient.gender.titleize %></span></span><% end %>
+    <% if contact.present? %><span class="small-text fw-semibold"><%= contact.value %></span><% end %>
+    <% if address.present? %><span class="small-text fw-semibold"><%= [Array(address.line).join(", "), address.city, address.state, address.postalCode].compact_blank.join(", ") %></span><% end %>
+    </div>
+    <button type="button" class="btn-close btn-close-white flex-shrink-0 mt-1" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+
+  <div class="offcanvas-body pt-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+      <h5 class="fw-semibold mb-0" style="font-size:19px;"><%= referral.focus&.description || "Referral" %></h5>
+      <span class="badge text-bg-secondary text-uppercase flex-shrink-0"><%= referral.status.to_s.tr("-", " ") %></span>
+    </div>
+
+    <%= render layout: "dashboard/referral_section", locals: { title: "Referral" } do %>
+      <% if referral.focus&.sdoh_category_codes.present? %>
+        <%= render "dashboard/referral_field", label: "Reason", value: referral.focus.sdoh_category_codes.map { |code| code.tr("-", " ").titleize }.join(", ") %>
+      <% end %>
+      <%= render "dashboard/referral_field", label: "Service requested", value: referral.focus&.description %>
+      <%= render "dashboard/referral_field", label: "Priority", value: [referral.focus&.priority&.titleize, ("requested #{referral.authored_on.strftime("%b %-d, %Y")}" if referral.authored_on.present?)].compact_blank.join(" · ") %>
+      <%= render "dashboard/referral_field", label: "Referred by", value: referral.requester_name %>
+      <%= render "dashboard/referral_field", label: "Assigned to", value: referral.owner_name %>
+      <% if referral.consent.present? %>
+        <%= render "dashboard/referral_field", label: "Consent", value: "On file · #{referral.consent.code}" %>
+      <% end %>
+    <% end %>
+
+    <% if detail.concerns.present? %>
+      <%= render layout: "dashboard/referral_section", locals: { title: "Health concerns" } do %>
+        <% detail.concerns.each do |concern| %>
+          <div class="py-2 border-bottom">
+            <div class="fw-semibold" style="font-size:14.5px;"><%= concern[:name] %></div>
+            <div class="small-text text-secondary">
+              <%= [concern[:status].presence, ("onset #{concern[:onset].strftime("%b %-d, %Y")}" if concern[:onset]), ("asserted by #{concern[:asserter]}" if concern[:asserter].present?)].compact_blank.join(" · ") %>
+            </div>
+            <% if concern[:evidence].present? %>
+              <div class="small-text mt-1 ps-2 border-start">
+                Evidence — <%= concern[:evidence][:finding].label %><%= ": #{concern[:evidence][:finding].detail}" if concern[:evidence][:finding].detail.present? %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <% if detail.screenings.present? %>
+      <%= render layout: "dashboard/referral_section", locals: { title: "Screening" } do %>
+        <% detail.screenings.each do |screening| %>
+          <div class="py-2 border-bottom">
+            <div class="d-flex justify-content-between align-items-baseline">
+              <span class="fw-semibold" style="font-size:14px;"><%= screening[:name] %></span>
+              <span class="small-text text-secondary"><%= [screening[:date]&.strftime("%b %-d, %Y"), screening[:source]].compact_blank.join(" · ") %></span>
+            </div>
+            <% if screening[:answers].present? %>
+              <table class="table table-sm mb-0 small-text">
+                <tbody>
+                  <% screening[:answers].each do |answer| %>
+                    <tr>
+                      <td class="text-secondary ps-0"><%= answer[:text] || answer[:link_id]&.humanize %></td>
+                      <td class="fw-semibold text-end pe-0" style="width:200px;"><%= answer[:value] %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <% if detail.assessments.present? %>
+      <%= render layout: "dashboard/referral_section", locals: { title: "Assessments" } do %>
+        <% detail.assessments.each do |assessment| %>
+          <div class="py-2 border-bottom">
+            <div class="d-flex justify-content-between align-items-baseline">
+              <span class="fw-semibold" style="font-size:14px;"><%= assessment[:performer] %></span>
+              <span class="small-text text-secondary"><%= assessment[:date]&.strftime("%b %-d, %Y") %></span>
+            </div>
+            <table class="table table-sm mb-0 mt-1 small-text"><tbody>
+              <% assessment[:findings].each do |finding| %>
+                <tr><td class="text-secondary ps-0"><%= finding[:name] %></td>
+                <td class="fw-semibold text-end pe-0" style="width:200px;"><%= finding[:value].presence || "recorded" %></td></tr>
+              <% end %>
+            </tbody></table>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <% if detail.goals.present? %>
+      <%= render layout: "dashboard/referral_section", locals: { title: "Goals" } do %>
+        <% detail.goals.each do |goal| %>
+          <div class="py-2 border-bottom">
+            <div class="fw-semibold" style="font-size:14.5px;"><%= goal[:name] %></div>
+            <div class="small-text text-secondary">
+              <%= [goal[:status].presence, ("updated #{goal[:updated].strftime("%b %-d, %Y")}" if goal[:updated]), ("due #{goal[:due].strftime("%b %-d, %Y")}" if goal[:due])].compact_blank.join(" · ") %>
+            </div>
+            <% if goal[:target].present? %>
+              <div class="small-text mt-1 ps-2 border-start">Target — <%= goal[:target] %></div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <% if detail.supplemental.present? %>
+      <%= render layout: "dashboard/referral_section", locals: { title: "Supplemental information" } do %>
+        <% detail.supplemental.each do |row| %>
+          <div class="py-2 border-bottom small-text"><%= row[:finding].label %></div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <% if detail.attachments.present? || detail.unresolved.present? %>
+      <div class="mt-4 pt-3 border-top">
+        <a class="fw-semibold" style="font-size:13.5px;" data-bs-toggle="collapse" href="#referral-tech-<%= referral.id %>">Attachments and technical details</a>
+        <div class="collapse mt-2" id="referral-tech-<%= referral.id %>">
+          <% detail.attachments.each do |row| %>
+            <% modal_id = "referral-detail-modal-#{referral.id}-#{row[:entry].id}" %>
+            <%# The name is the link. A raw Type/id beside it reads as noise. %>
+            <div class="py-1 small-text">
+              <%= link_to row[:finding].label, "##{modal_id}", data: { bs_toggle: "modal" } %>
+            </div>
+            <% content_for :modals do %>
+              <%= render "shared/fhir_resource_modal", resource: row[:resource].fhir_resource, modal_id: modal_id %>
+            <% end %>
+          <% end %>
+          <% detail.unresolved.each do |entry| %>
+            <div class="py-1 small-text text-secondary"><%= entry.reference %> — could not be read</div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <% if detail.attachments.blank? && detail.unresolved.blank? %>
+      <div class="text-secondary small-text mt-3">No supporting information was sent with this referral.</div>
+    <% end %>
+  </div>
+</div>

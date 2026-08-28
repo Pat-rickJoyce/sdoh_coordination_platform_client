@@ -26,7 +26,7 @@
           <% referrals&.each do |referral| %>
             <tr id="task-row-<%= referral.id %>">
               <td>
-                <%= referral.focus&.description %>
+                <%= referral.focus&.description.presence || "Referral" %>
                 <%# A referral for further assessment is distinguished only by %>
                 <%# ServiceRequest.code being an assessment procedure (rffa.html). %>
                 <% if assessment_referral?(referral.focus) %>
@@ -73,6 +73,9 @@
               </td>
               <td>
                 <%= render "dashboard/task_attachments", referral: referral %>
+                <% content_for :modals do %>
+                  <%= render "dashboard/referral_detail", referral: referral %>
+                <% end %>
               </td>
               <td>
                 <% if type == "completed" %>

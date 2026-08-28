@@ -142,6 +142,21 @@ module TasksHelper
     end
   end
 
+  # The referral drawer's patient banner puts age beside the date of birth, the
+  # way every EMR does, rather than making the reader do the arithmetic.
+  def parse_birth_date(value)
+    Date.parse(value.to_s)
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def age_in_years(birth_date)
+    today = Date.current
+    age = today.year - birth_date.year
+    age -= 1 if ([today.month, today.day] <=> [birth_date.month, birth_date.day]) == -1
+    age
+  end
+
   private
 
   def group_tasks(tasks)

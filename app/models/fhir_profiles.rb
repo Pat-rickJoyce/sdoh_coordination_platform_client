@@ -15,6 +15,14 @@ module FhirProfiles
   # SDOHCC Procedure
   PROCEDURE = "http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-Procedure".freeze
 
+  # The Observation profiles that tell a screening answer apart from an
+  # assessment result. Task.input:AdditionalContent.value[x] is
+  # Reference(Resource) with no targetProfile, so meta.profile is the only thing
+  # that says which of the two an Observation is, and a bare "Observation" badge
+  # on both says nothing.
+  OBSERVATION_ASSESSMENT = "http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-ObservationAssessment".freeze
+  OBSERVATION_SCREENING_RESPONSE = "http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-ObservationScreeningResponse".freeze
+
   # --- External code systems ---
 
   # SNOMED CT, the system the assessment procedure codes below come from.

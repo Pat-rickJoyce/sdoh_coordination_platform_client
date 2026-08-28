@@ -27,10 +27,10 @@
         <tbody>
           <% referrals&.each do |referral| %>
             <tr id="task-row-<%= referral.id %>">
-              <td><%= referral.authored_on %></td>
+              <td><%= referral.authored_on&.strftime("%b %-d, %Y") || "--" %></td>
               <td>
                 <% if referral.fhir_resource&.id.present? %>
-                  <%= link_to referral.focus&.description, "#fhir-resource-modal-#{referral.id}", data: { bs_toggle: "modal" } %>
+                  <%= link_to referral.focus&.description.presence || "Referral", "#fhir-resource-modal-#{referral.id}", data: { bs_toggle: "modal" } %>
                   <% content_for :modals do %>
                     <%= render "shared/fhir_resource_modal", resource: referral.fhir_resource %>
                   <% end %>
@@ -109,6 +109,9 @@
               </td>
               <td>
                 <%= render "dashboard/task_attachments", referral: referral %>
+                <% content_for :modals do %>
+                  <%= render "dashboard/referral_detail", referral: referral %>
+                <% end %>
               </td>
               <td>
                 <% if type == "completed" %>
