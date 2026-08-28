@@ -1,0 +1,100 @@
+<%# The clinical content of a referral, whichever direction it travelled. Sent
+     with the request and returned when it closed are grouped identically, so
+     the two drawers render the same sections from the same partial and differ
+     only in what surrounds them. Each section is omitted when empty. %>
+<% if detail.enrollment.present? %>
+  <%= render layout: "dashboard/referral_section", locals: { title: "Enrollment" } do %>
+    <% detail.enrollment.each do |row| %>
+      <div class="py-2 border-bottom d-flex justify-content-between align-items-baseline gap-3">
+        <span style="font-size:14.5px;"><%= row[:name] %></span>
+        <span class="fw-semibold text-end"><%= row[:value].presence || "recorded" %><span class="small-text text-secondary fw-normal"><%= " · #{row[:date].strftime("%b %-d, %Y")}" if row[:date] %></span></span>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if detail.concerns.present? %>
+  <%= render layout: "dashboard/referral_section", locals: { title: "Health concerns" } do %>
+    <% detail.concerns.each do |concern| %>
+      <div class="py-2 border-bottom">
+        <div class="fw-semibold" style="font-size:14.5px;"><%= concern[:name] %></div>
+        <div class="small-text text-secondary">
+          <%= [concern[:status].presence, ("onset #{concern[:onset].strftime("%b %-d, %Y")}" if concern[:onset]), ("asserted by #{concern[:asserter]}" if concern[:asserter].present?)].compact_blank.join(" · ") %>
+        </div>
+        <% if concern[:evidence].present? %>
+          <div class="small-text mt-1 ps-2 border-start">
+            Evidence — <%= concern[:evidence][:finding].label %><%= ": #{concern[:evidence][:finding].detail}" if concern[:evidence][:finding].detail.present? %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if detail.screenings.present? %>
+  <%= render layout: "dashboard/referral_section", locals: { title: "Screening" } do %>
+    <% detail.screenings.each do |screening| %>
+      <div class="py-2 border-bottom">
+        <div class="d-flex justify-content-between align-items-baseline">
+          <span class="fw-semibold" style="font-size:14px;"><%= screening[:name] %></span>
+          <span class="small-text text-secondary"><%= [screening[:date]&.strftime("%b %-d, %Y"), screening[:source]].compact_blank.join(" · ") %></span>
+        </div>
+        <% if screening[:answers].present? %>
+          <table class="table table-sm mb-0 small-text">
+            <tbody>
+              <% screening[:answers].each do |answer| %>
+                <tr>
+                  <td class="text-secondary ps-0"><%= answer[:text] || answer[:link_id]&.humanize %></td>
+                  <td class="fw-semibold text-end pe-0" style="width:200px;"><%= answer[:value] %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if detail.assessments.present? %>
+  <%= render layout: "dashboard/referral_section", locals: { title: "Assessments" } do %>
+    <% detail.assessments.each do |assessment| %>
+      <div class="py-2 border-bottom">
+        <div class="d-flex justify-content-between align-items-baseline">
+          <span class="fw-semibold" style="font-size:14px;"><%= assessment[:performer] %></span>
+          <span class="small-text text-secondary"><%= assessment[:date]&.strftime("%b %-d, %Y") %></span>
+        </div>
+        <table class="table table-sm mb-0 mt-1 small-text"><tbody>
+          <% assessment[:findings].each do |finding| %>
+            <tr><td class="text-secondary ps-0"><%= finding[:name] %></td>
+            <td class="fw-semibold text-end pe-0" style="width:200px;"><%= finding[:value].presence || "recorded" %></td></tr>
+          <% end %>
+        </tbody></table>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if detail.goals.present? %>
+  <%= render layout: "dashboard/referral_section", locals: { title: "Goals" } do %>
+    <% detail.goals.each do |goal| %>
+      <div class="py-2 border-bottom">
+        <div class="fw-semibold" style="font-size:14.5px;"><%= goal[:name] %></div>
+        <div class="small-text text-secondary">
+          <%= [goal[:status].presence, ("updated #{goal[:updated].strftime("%b %-d, %Y")}" if goal[:updated]), ("due #{goal[:due].strftime("%b %-d, %Y")}" if goal[:due])].compact_blank.join(" · ") %>
+        </div>
+        <% if goal[:target].present? %>
+          <div class="small-text mt-1 ps-2 border-start">Target — <%= goal[:target] %></div>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if detail.supplemental.present? %>
+  <%= render layout: "dashboard/referral_section", locals: { title: "Supplemental information" } do %>
+    <% detail.supplemental.each do |row| %>
+      <div class="py-2 border-bottom small-text"><%= row[:finding].label %></div>
+    <% end %>
+  <% end %>
+<% end %>

@@ -1,0 +1,22 @@
+<%# The FHIR resources themselves, once each, out of the reading path. This is
+     the only place a resource type is named. %>
+<% if detail.attachments.present? || detail.unresolved.present? %>
+  <div class="mt-4 pt-3 border-top">
+    <a class="fw-semibold" style="font-size:13.5px;" data-bs-toggle="collapse" href="#<%= collapse_id %>"><%= title %></a>
+    <div class="collapse mt-2" id="<%= collapse_id %>">
+      <% detail.attachments.each do |row| %>
+        <% modal_id = "#{collapse_id}-modal-#{row[:entry].id}" %>
+        <%# The name is the link. A raw Type/id beside it reads as noise. %>
+        <div class="py-1 small-text">
+          <%= link_to row[:finding].label, "##{modal_id}", data: { bs_toggle: "modal" } %>
+        </div>
+        <% content_for :modals do %>
+          <%= render "shared/fhir_resource_modal", resource: row[:resource].fhir_resource, modal_id: modal_id %>
+        <% end %>
+      <% end %>
+      <% detail.unresolved.each do |entry| %>
+        <div class="py-1 small-text text-secondary"><%= entry.reference %> — could not be read</div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

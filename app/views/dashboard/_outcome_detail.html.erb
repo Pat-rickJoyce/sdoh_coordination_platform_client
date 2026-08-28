@@ -1,0 +1,51 @@
+<%# What came back. The clinical content is grouped exactly as it is on the way
+     in, because a Condition returned reads like a Condition sent; what leads is
+     what was actually done, which has no counterpart on the incoming side. %>
+<% outcome = OutcomeDetail.new(referral) %>
+<div class="offcanvas offcanvas-end" tabindex="-1" id="outcome-detail-<%= referral.id %>" style="width: 720px;">
+
+  <%= render "dashboard/patient_banner", patient: referral.patient_resource, patient_name: referral.patient_name %>
+
+  <div class="offcanvas-body pt-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+      <h5 class="fw-semibold mb-0" style="font-size:19px;"><%= referral.focus&.description || "Referral" %></h5>
+      <span class="badge text-bg-secondary text-uppercase flex-shrink-0"><%= referral.status.to_s.tr("-", " ") %></span>
+    </div>
+
+    <%= render layout: "dashboard/referral_section", locals: { title: "Outcome" } do %>
+      <%= render "dashboard/referral_field", label: "Service requested", value: referral.focus&.description %>
+      <%= render "dashboard/referral_field", label: "Provided by", value: referral.owner_name %>
+      <%= render "dashboard/referral_field", label: "Referred by", value: referral.requester_name %>
+      <% if referral.status_reason.present? %>
+        <%= render "dashboard/referral_field", label: "Reason", value: referral.status_reason %>
+      <% end %>
+    <% end %>
+
+    <% if outcome.performed_activities.present? %>
+      <%= render layout: "dashboard/referral_section", locals: { title: "What was done" } do %>
+        <% outcome.performed_activities.each do |activity| %>
+          <div class="py-2 border-bottom">
+            <div class="d-flex justify-content-between align-items-baseline gap-3">
+              <span class="fw-semibold" style="font-size:14.5px;"><%= activity[:name] %></span>
+              <span class="small-text text-secondary text-nowrap"><%= [activity[:status], activity[:date]&.strftime("%b %-d, %Y")].compact_blank.join(" · ") %></span>
+            </div>
+            <% if activity[:coded_only] %>
+              <%# output[PerformedActivityCode]: the same statement with no
+                   resource behind it. Saying so beats an unopenable link. %>
+              <div class="small-text text-secondary mt-1">Reported as a code, with no procedure record attached.</div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <%= render "dashboard/clinical_sections", detail: outcome %>
+
+    <%= render "dashboard/content_technical_details", detail: outcome,
+          collapse_id: "outcome-tech-#{referral.id}", title: "Returned resources and technical details" %>
+
+    <% unless outcome.any? %>
+      <div class="text-secondary small-text mt-3">Nothing was returned with this referral.</div>
+    <% end %>
+  </div>
+</div>

@@ -79,52 +79,33 @@
               </td>
               <td>
                 <% if type == "completed" %>
-                  <%# The enrollment status the CBO closed the referral with %>
-                  <%# leads the cell; enrollment.html makes the coordination %>
-                  <%# platform the Intermediary that passes it on. %>
+                  <%# The enrollment status the CBO closed the referral with
+                      leads the cell; enrollment.html makes the coordination
+                      platform the Intermediary that passes it on, and one badge
+                      is worth reading at a glance. Everything else came back
+                      through Task.output, and that is a drawer, not a list. %>
                   <% enrollment = referral.enrollment_status %>
                   <% if enrollment.present? %>
-                    <%= link_to "#fhir-resource-modal-#{enrollment.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
-                      <span class="badge <%= enrollment_status_badge_class(enrollment.enrollment_status_code) %>">
-                        <%= enrollment.enrollment_status_display %>
-                      </span>
-                    <% end %>
+                    <div>
+                      <%= link_to "#fhir-resource-modal-#{enrollment.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
+                        <span class="badge <%= enrollment_status_badge_class(enrollment.enrollment_status_code) %>">
+                          <%= enrollment.enrollment_status_display %>
+                        </span>
+                      <% end %>
+                    </div>
                     <% content_for :modals do %>
                       <%= render "shared/fhir_resource_modal", resource: enrollment.fhir_resource %>
                     <% end %>
                   <% end %>
-                  <% other_outputs = Array(referral.outputs).reject { |output| enrollment.present? && output.resource == enrollment } %>
-                  <% if other_outputs.present? %>
-                    <% other_outputs.each_with_index do |output, index| %>
-                      <% if index.positive? || enrollment.present? %>, <% end %>
-                      <% if output.resource.blank? %>
-                        <span class="small-text"><%= [output.type_display, output.value].compact.join(": ") %></span>
-                      <% elsif output.resource_type == "Procedure" %>
-                        <%= link_to "#referral-procedure-modal-#{output.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
-                          <span class="badge <%= outcome_type_badge_class(output.resource_type) %>"><%= output.resource_type %></span>
-                          <%= output.resource_label %>
-                        <% end %>
-                        <% content_for :modals do %>
-                          <%= render "dashboard/procedure_modal", resource: output.resource %>
-                        <% end %>
-                      <% else %>
-                        <%# Every other outcome type an assessment can come back %>
-                        <%# with - a QuestionnaireResponse, an Observation %>
-                        <%# Assessment or Screening Response, a Condition, a Goal, %>
-                        <%# a CarePlan - is badged by its resource type and opened %>
-                        <%# in shared/_fhir_resource_modal, which renders whatever %>
-                        <%# the referral target sent. %>
-                        <%= link_to "#fhir-resource-modal-#{output.id}", data: { bs_toggle: "modal" }, class: "text-decoration-none" do %>
-                          <span class="badge <%= outcome_type_badge_class(output.resource_type) %>"><%= output.resource_type %></span>
-                          <%= output.resource_label %>
-                        <% end %>
-                        <% content_for :modals do %>
-                          <%= render "shared/fhir_resource_modal", resource: output.resource.fhir_resource %>
-                        <% end %>
-                      <% end %>
+                  <% if referral.outputs.present? %>
+                    <%= link_to "Review outcome", "#outcome-detail-#{referral.id}",
+                          class: "small-text fw-semibold",
+                          data: { bs_toggle: "offcanvas" } %>
+                    <% content_for :modals do %>
+                      <%= render "dashboard/outcome_detail", referral: referral %>
                     <% end %>
                   <% elsif enrollment.blank? %>
-                    --
+                    <span class="small-text text-secondary">Nothing returned</span>
                   <% end %>
                 <% elsif type == "active" %>
                   <%= link_to "/tasks/#{referral.id}/cancelled", class: "action-button text-nowrap text-muted" do %>

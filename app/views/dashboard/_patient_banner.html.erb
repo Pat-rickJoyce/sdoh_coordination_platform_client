@@ -1,0 +1,18 @@
+<%# Identity across the top, which is where every EMR puts it rather than
+     burying it mid-page. The close button is a sibling of the wrapping group
+     rather than a member of it, so a long address wraps under the name instead
+     of under the button. %>
+<% address = Array(patient&.address).first %>
+<% contact = Array(patient&.telecom).first %>
+<div class="px-4 py-3 d-flex align-items-start gap-3" style="background:#12303a;color:#fff;">
+  <div class="d-flex flex-wrap align-items-baseline gap-3" style="flex:1 1 auto; min-width:0;">
+    <span class="fw-bold" style="font-size:17px;"><%= patient_name %></span>
+    <% if patient&.birthDate.present? %>
+      <span class="small-text" style="color:#b6ccd3;">DOB <span class="fw-semibold text-white"><%= patient.birthDate %></span><%= " (#{age_in_years(parse_birth_date(patient.birthDate))}y)" if parse_birth_date(patient.birthDate) %></span>
+    <% end %>
+    <% if patient&.gender.present? %><span class="small-text" style="color:#b6ccd3;">Sex <span class="fw-semibold text-white"><%= patient.gender.titleize %></span></span><% end %>
+    <% if contact.present? %><span class="small-text fw-semibold"><%= contact.value %></span><% end %>
+    <% if address.present? %><span class="small-text fw-semibold"><%= [Array(address.line).join(", "), address.city, address.state, address.postalCode].compact_blank.join(", ") %></span><% end %>
+  </div>
+  <button type="button" class="btn-close btn-close-white flex-shrink-0 mt-1" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+</div>

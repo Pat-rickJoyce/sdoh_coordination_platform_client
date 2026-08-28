@@ -19,6 +19,7 @@ class Finding
     instrument: { label: "Completed instruments", badge: "bg-info text-dark", badge_label: "Instrument" },
     answer: { label: "Individual answers", badge: "bg-light text-dark border", badge_label: "Answer" },
     assessment: { label: "Assessment results", badge: "bg-primary", badge_label: "Assessment" },
+    enrollment: { label: "Program enrollment", badge: "bg-dark", badge_label: "Enrollment" },
     condition: { label: "Health concerns", badge: "bg-danger", badge_label: "Condition" },
     goal: { label: "Goals", badge: "bg-success", badge_label: "Goal" },
     other: { label: "Other", badge: "bg-secondary", badge_label: "Other" },
@@ -98,6 +99,7 @@ class Finding
     when FHIR::Condition then :condition
     when FHIR::Goal then :goal
     when FHIR::Observation
+      return :enrollment if enrollment_status?(fhir_resource)
       return :assessment if @profiles.include?(FhirProfiles::OBSERVATION_ASSESSMENT)
       return :answer if @profiles.include?(FhirProfiles::OBSERVATION_SCREENING_RESPONSE)
 
@@ -105,6 +107,16 @@ class Finding
     else
       :other
     end
+  end
+
+  # SDOHCC-ObservationProgramEnrollmentStatus fixes category[enrollment] to
+  # program-enrollment. Task.output:AdditionalContent carries assessments,
+  # screening responses, goals and conditions alongside it, so the category is
+  # what tells an enrollment status apart from them - and it is read rather than
+  # meta.profile because data written by another system may not declare one.
+  def enrollment_status?(fhir_resource)
+    Array(fhir_resource.category).flat_map { |category| Array(category&.coding) }
+      .any? { |coding| coding&.code == FhirProfiles::PROGRAM_ENROLLMENT_CATEGORY_CODE }
   end
 
   # Each of these resources says what it is in a different element.
