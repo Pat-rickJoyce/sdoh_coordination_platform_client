@@ -5,6 +5,12 @@ test:
   adapter: test
 
 production:
-  adapter: redis
-  url: <%= ENV.fetch("REDIS_URL") { "redis://localhost:6379/1" } %>
-  channel_prefix: sdoh_coordination_platform_client_production
+  # The redis gem is commented out of the Gemfile, so this adapter raised
+  # Gem::LoadError on every broadcast and /poll_tasks returned 500 for the whole
+  # life of the production image - the dashboard's tables never refreshed and the
+  # browser console filled with failures. The referral source and CBO clients
+  # both run async here; this is the CP catching up with them.
+  adapter: async
+  # adapter: redis
+  # url: <%= ENV.fetch("REDIS_URL") { "redis://localhost:6379/1" } %>
+  # channel_prefix: sdoh_coordination_platform_client_production
