@@ -64,9 +64,25 @@
               </td>
               <td>
                 <% if type == "completed" %>
-                  <%= link_to referral.outcome_type, "#referral-procedure-modal-#{referral.outcome&.id}", data: { bs_toggle: "modal" } %>
-                  <% content_for :modals do %>
-                    <%= render "dashboard/procedure_modal", resource: referral.outcome %>
+                  <% if referral.outputs.present? %>
+                    <% referral.outputs.each_with_index do |output, index| %>
+                      <% if index.positive? %>, <% end %>
+                      <% if output.resource.blank? %>
+                        <span class="small-text"><%= [output.type_display, output.value].compact.join(": ") %></span>
+                      <% elsif output.resource_type == "Procedure" %>
+                        <%= link_to output.type_display, "#referral-procedure-modal-#{output.id}", data: { bs_toggle: "modal" } %>
+                        <% content_for :modals do %>
+                          <%= render "dashboard/procedure_modal", resource: output.resource %>
+                        <% end %>
+                      <% else %>
+                        <%= link_to "#{output.type_display} (#{output.resource_type})", "#fhir-resource-modal-#{output.id}", data: { bs_toggle: "modal" } %>
+                        <% content_for :modals do %>
+                          <%= render "shared/fhir_resource_modal", resource: output.resource.fhir_resource %>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  <% else %>
+                    --
                   <% end %>
                 <% elsif type == "active" %>
                   <%= link_to "/tasks/#{referral.id}/cancelled", class: "action-button text-nowrap text-muted" do %>

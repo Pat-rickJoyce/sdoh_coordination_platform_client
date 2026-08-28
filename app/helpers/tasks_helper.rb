@@ -13,7 +13,7 @@ module TasksHelper
     client = get_cp_client
     search_params = {
       parameters: {
-        _profile: "http://hl7.org/fhir/us/sdoh-clinicalcare/StructureDefinition/SDOHCC-TaskForReferralManagement",
+        _profile: FhirProfiles::TASK_FOR_REFERRAL_MANAGEMENT,
         _sort: "-_lastUpdated",
       # _include: "Task:focus",
       # _include: "Task:requester",
