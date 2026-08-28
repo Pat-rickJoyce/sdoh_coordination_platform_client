@@ -9,3 +9,9 @@ application.register("poll-tasks", PollTasksController)
 
 import ToastsController from "./toasts_controller"
 application.register("toasts", ToastsController)
+
+import CapacityController from "./capacity_controller"
+application.register("capacity", CapacityController)
+
+import RequestActionController from "./request_action_controller"
+application.register("request-action", RequestActionController)

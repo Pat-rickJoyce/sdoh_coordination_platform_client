@@ -1,4 +1,6 @@
-<div id="request-action-modal-<%= resource.id %>" class="modal" tabindex="-1" role="dialog">
+<div id="request-action-modal-<%= resource.id %>" class="modal" tabindex="-1" role="dialog"
+     data-controller="request-action"
+     data-request-action-category-value="<%= resource.focus&.sdoh_category_code %>">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
@@ -24,23 +26,40 @@
 
               <div class="label-value">
                 <span class="fw-semibold">Status:</span>
-                <select name="task_status" class="form-select small-text" id="task_status-<%= resource.id %>">
+                <select name="task_status" class="form-select small-text" id="task_status-<%= resource.id %>"
+                        data-request-action-target="statusSelect"
+                        data-action="change->request-action#statusChanged">
                   <option value="">update the status</option>
                   <% statuses.each do |status| %>
                     <option value="<%= status %>"><%= status %></option>
                   <% end %>
                 </select>
               </div>
-              <div class="label-value cbo-organization-container" style="display:none;">
+              <div class="label-value cbo-organization-container" style="display:none;"
+                   data-request-action-target="cboContainer">
                 <span class="fw-semibold mb-2">Assign task to a CBO organization:</span>
-                <select name="cbo_organization_id" class="form-select small-text" id="cbo_organization-<%= resource.id %>">
+                <select name="cbo_organization_id" class="form-select small-text" id="cbo_organization-<%= resource.id %>"
+                        data-request-action-target="cboSelect"
+                        data-action="change->request-action#cboChanged">
                   <option value="">Select a CBO organization</option>
                   <% @cbo_organizations.each do |cbo_organization| %>
                     <option value="<%= cbo_organization.id %>"><%= cbo_organization.name %></option>
                   <% end %>
                 </select>
+                <span class="badge ms-2 d-none" data-request-action-target="capacityBadge"></span>
+                <div class="alert alert-danger d-none mt-2 small-text" data-request-action-target="blockedAlert">
+                  This organization is at capacity and cannot accept new referrals. Please select a different organization.
+                </div>
+                <div class="alert alert-warning d-none mt-2 small-text" data-request-action-target="waitlistAlert">
+                  This organization has a waitlist. Do you want to proceed with the referral?
+                  <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-secondary" data-action="request-action#cancelWaitlist">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-primary" data-action="request-action#proceedWaitlist">Proceed</button>
+                  </div>
+                </div>
               </div>
-              <div class="label-value status-reason-container" style="display:none;">
+              <div class="label-value status-reason-container" style="display:none;"
+                   data-request-action-target="statusReasonContainer">
                 <span class="fw-semibold">Status Reason:</span>
                 <input type="text" name="status_reason" class="form-control small-text" id="status_reason-<%= resource.id %>">
               </div>
@@ -50,7 +69,7 @@
               <!-- submit button -->
               <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="submit" class="btn btn-primary">Submit</button>
+                <button type="submit" class="btn btn-primary" data-request-action-target="submitButton">Submit</button>
               </div>
             <% end %>
           </div>
@@ -59,21 +78,3 @@
     </div>
   </div>
 </div>
-
-<script>
-  document.getElementById("task_status-<%= resource.id %>").addEventListener("change", function() {
-    const cboOrganizationContainer = document.querySelector(".cbo-organization-container");
-    const statusReasonContainer = document.querySelector(".status-reason-container");
-    if (this.value === "accepted") {
-      cboOrganizationContainer.style.display = "block";
-      statusReasonContainer.style.display = "none";
-    } else if (this.value === "rejected") {
-      cboOrganizationContainer.style.display = "none";
-      statusReasonContainer.style.display = "block";
-    } else {
-      cboOrganizationContainer.style.display = "none";
-      statusReasonContainer.style.display = "none";
-    }
-
-  });
-</script>
