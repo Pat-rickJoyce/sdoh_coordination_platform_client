@@ -20,7 +20,7 @@ services:
       # APPLICATION_HOST: "localhost:3000"
     restart: unless-stopped
     command: >
-      bash -c "bundle exec rails server -p 3000"
+      bash -c "rm -f tmp/pids/server.pid && bundle exec rails server -p 3000"
 
   # redis:
   #   image: redis:alpine

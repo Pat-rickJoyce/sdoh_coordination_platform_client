@@ -36,3 +36,6 @@
 /node_modules
 
 db/*.sqlite3
+
+# Local-only compose overrides (host port mapping, etc.)
+/docker-compose.override.yml
