@@ -2,17 +2,20 @@ module ApplicationHelper
   include SessionsHelper
   include TasksHelper
 
+  # Returns the CBO organizations on the connected server, or nil when they
+  # could not be fetched. Callers and views branch on nil, so a server that is
+  # unreachable or is not a FHIR server must not raise out of here: on master
+  # the else branch called #response on a resource that does not answer it, and
+  # that NoMethodError was the 500 on /dashboard.
   def organizations
-    Rails.cache.fetch(organizations_key, expires_in: 1.day) do
-      response = get_cp_client.search(FHIR::Organization, search: {  parameters: { type: 'cbo', _sort: "-_lastUpdated" }}).resource
+    cached = Rails.cache.read(organizations_key)
+    return cached unless cached.nil?
 
-      if response.is_a?(FHIR::Bundle)
-        entries = response.entry&.map(&:resource)
-        entries&.map { |entry| Organization.new(entry) }
-      else
-        Rails.logger.error("Unable to fetch Organizations: #{response.response[:code]} - #{response.response[:body]}")
-      end
-    end
+    orgs = fetch_organizations
+    # Only a successful lookup is cached, so picking a working server after a
+    # failed one does not keep serving the failure for a day.
+    Rails.cache.write(organizations_key, orgs, expires_in: 1.day) unless orgs.nil?
+    orgs
   end
 
   def bootstrap_class_for(flash_type)
@@ -54,5 +57,29 @@ module ApplicationHelper
     end
 
     output.html_safe
+  end
+
+  private
+
+  def fetch_organizations
+    client = get_cp_client
+    if client.nil?
+      Rails.logger.error("Unable to fetch Organizations: not connected to a FHIR server")
+      return nil
+    end
+
+    reply = client.search(FHIR::Organization, search: { parameters: { type: "cbo", _sort: "-_lastUpdated" } })
+    bundle = reply.resource
+
+    if bundle.is_a?(FHIR::Bundle)
+      entries = bundle.entry&.map(&:resource)
+      entries&.map { |entry| Organization.new(entry) } || []
+    else
+      Rails.logger.error("Unable to fetch Organizations: #{reply&.response&.[](:code)} - #{reply&.response&.[](:body)}")
+      nil
+    end
+  rescue StandardError => e
+    Rails.logger.error(e.full_message)
+    nil
   end
 end

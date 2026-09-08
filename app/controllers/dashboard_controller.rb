@@ -1,11 +1,6 @@
 class DashboardController < ApplicationController
   before_action :require_cp_client, :set_tasks, :get_cbo_organizations
 
-  # GET /dashboard
-  def main
-    @active_tab = active_tab
-  end
-
   private
 
   # Getting all resources associated with the given patient
@@ -20,7 +15,16 @@ class DashboardController < ApplicationController
       @completed_ehr_tasks = result["ehr_tasks"]&.dig("completed") || []
       @cancelled_ehr_tasks = result["ehr_tasks"]&.dig("cancelled") || []
     else
-      flash[:warning] = result
+      # The server we are pointed at could not be read. Render the dashboard
+      # with empty tables and say why, so the user can log out and pick another
+      # server instead of being stuck on an error page.
+      @active_cp_tasks = []
+      @completed_cp_tasks = []
+      @cancelled_cp_tasks = []
+      @active_ehr_tasks = []
+      @completed_ehr_tasks = []
+      @cancelled_ehr_tasks = []
+      flash.now[:warning] = result
     end
   end
 end
