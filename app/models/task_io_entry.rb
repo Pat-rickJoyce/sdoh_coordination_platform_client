@@ -170,12 +170,13 @@ class TaskIoEntry
     fhir_class if fhir_class.is_a?(Class) && fhir_class <= FHIR::Model
   end
 
-  # This client only models Procedure. Observation, Goal, Condition,
-  # QuestionnaireResponse and CarePlan additional content still resolve, as raw
-  # FHIR, rather than being dropped.
+  # This client models Procedure and Observation, the two resources its tables
+  # render. Goal, Condition, QuestionnaireResponse and CarePlan additional
+  # content still resolve, as raw FHIR, rather than being dropped.
   def wrap(fhir_resource)
     case resource_type
     when "Procedure" then Procedure.new(fhir_resource)
+    when "Observation" then Observation.new(fhir_resource)
     else GenericResource.new(fhir_resource)
     end
   end
