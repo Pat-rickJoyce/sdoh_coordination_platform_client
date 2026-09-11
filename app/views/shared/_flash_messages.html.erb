@@ -1,7 +1,7 @@
 <!-- app/views/shared/_flash_messages.html.erb -->
 
 <% flash.each_with_index do |(type, message), index| %>
-  <% next unless %w[alert notice error success].include?(type) %>
+  <% next unless %w[alert notice error success warning].include?(type) %>
   <div id="toast-<%= index %>"
        class="toast toast--<%= type %>"
        role="alert"

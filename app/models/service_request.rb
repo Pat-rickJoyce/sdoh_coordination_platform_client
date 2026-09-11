@@ -15,7 +15,38 @@ class ServiceRequest
     @priority = fhir_service_request.priority
   end
 
+  # The SDOH domain code (e.g. food-insecurity, housing-instability) used to
+  # scope a HealthcareService capacity query via the service-category search
+  # parameter. Returns nil when the ServiceRequest carries no SDOHCC category,
+  # in which case the capacity query falls back to all of the CBO's services.
+  def sdoh_category_code
+    codings = fhir_resource&.category&.flat_map { |c| c.coding || [] } || []
+    coding = codings.find { |c| c.system.to_s.downcase.include?("sdoh") } ||
+             codings.find { |c| SDOH_DOMAIN_CODES.include?(c.code) }
+    coding&.code
+  end
+
   private
+
+  SDOH_DOMAIN_CODES = %w[
+    food-insecurity
+    housing-instability
+    homelessness
+    inadequate-housing
+    transportation-insecurity
+    financial-insecurity
+    material-hardship
+    educational-attainment
+    employment-status
+    veteran-status
+    stress
+    social-connection
+    intimate-partner-violence
+    elder-abuse
+    health-insurance-coverage-status
+    utility-insecurity
+    sdoh-category-unspecified
+  ].freeze
 
   def read_category(category)
     category&.map { |c| read_codeable_concept(c) }&.join(", ")

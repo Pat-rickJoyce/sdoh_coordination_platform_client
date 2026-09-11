@@ -8,46 +8,46 @@ class TasksController < ApplicationController
 
   def update_task
     cp_client = get_cp_client
-    cached_cp_tasks = Rails.cache.read(cp_tasks_key)
-    cached_ehr_tasks = Rails.cache.read(ehr_tasks_key)
-    cached_tasks = [cached_cp_tasks, cached_ehr_tasks].flatten.compact
     part_of_id = ""
     begin
-      task = cached_tasks.find { |t| t.id == params[:id] }&.fhir_resource
-      sr_id = task.focus&.reference&.split("/")&.last
-      service_request = cp_client.read(FHIR::ServiceRequest, sr_id).resource
-      if task.present?
-        status = params[:status] == "status" ? params[:task_status] : params[:status]
-        part_of_id = task.partOf&.first&.reference&.split("/")&.last
-        task.status = status
-        if status == "accepted"
-          task_result = cp_client.update(task, task.id).resource
-          create_cp_task_service_request(task_result, service_request)
-        elsif status == "in-progress"
-          cp_client.update(task, task.id)
-        elsif status == "rejected"
-          task.statusReason = FHIR::CodeableConcept.new(text: params[:status_reason])
-          cp_client.update(task, task.id)
-        elsif status == "completed"
-          cp_task = cached_cp_tasks.map(&:fhir_resource).find { |t| t.partOf.first&.reference&.include?(task.id) }
-          task.output = cp_task&.output
-          cp_client.update(task, task.id)
-        elsif status == "cancelled" && part_of_id.present?
-          ehr_task = cached_tasks.find { |t| t.id == part_of_id }&.fhir_resource
-          task.statusReason = ehr_task.statusReason
-          cp_client.update(task, task.id)
-        elsif status == "cancelled" && part_of_id.blank?
-          cp_task = cached_cp_tasks.map(&:fhir_resource).find { |t| t.partOf.first&.reference&.include?(task.id) }
-          task.statusReason = cp_task&.statusReason
-          cp_client.update(task, task.id)
-        end
+      status = params[:status] == "status" ? params[:task_status].presence : params[:status].presence
+      raise ArgumentError, "Task status is required" if status.blank?
 
-        flash[:success] = "Task has been marked as #{status}."
-      else
-        Rails.logger.error("Unable to update task: task not found")
+      # Read the Task from the FHIR server rather than the polling cache. The
+      # cache is rebuilt by poll_tasks on a timer, so a cache-only lookup returns
+      # nil whenever an update lands during a refresh.
+      task = read_task!(params[:id])
 
-        flash[:error] = "Unable to update task: task not found"
+      part_of_id = task.partOf&.first&.reference&.split("/")&.last
+      task.status = status
+
+      if status == "accepted"
+        # Resolved only here, and only once the Task is known to exist.
+        sr_id = task.focus&.reference&.split("/")&.last
+        raise "Task #{task.id} has no focus ServiceRequest" if sr_id.blank?
+
+        service_request = cp_client.read(FHIR::ServiceRequest, sr_id).resource
+        raise "ServiceRequest #{sr_id} was not found" if service_request.blank?
+
+        task_result = cp_client.update(task, task.id).resource
+        create_cp_task_service_request(task_result, service_request)
+      elsif status == "in-progress"
+        cp_client.update(task, task.id)
+      elsif status == "rejected"
+        task.statusReason = FHIR::CodeableConcept.new(text: params[:status_reason])
+        cp_client.update(task, task.id)
+      elsif status == "completed"
+        task.output = child_cp_task(task.id)&.output
+        cp_client.update(task, task.id)
+      elsif status == "cancelled" && part_of_id.present?
+        task.statusReason = read_task(part_of_id)&.statusReason
+        cp_client.update(task, task.id)
+      elsif status == "cancelled" && part_of_id.blank?
+        task.statusReason = child_cp_task(task.id)&.statusReason
+        cp_client.update(task, task.id)
       end
+
+      flash[:success] = "Task has been marked as #{status}."
     rescue => e
       Rails.logger.error(e.full_message)
 
@@ -67,8 +67,9 @@ class TasksController < ApplicationController
     cached_cp_tasks = Rails.cache.read(cp_tasks_key) || []
     cached_ehr_tasks = Rails.cache.read(ehr_tasks_key) || []
     cached_tasks = [cached_cp_tasks, cached_ehr_tasks].flatten
-    Rails.cache.delete(cp_tasks_key)
-    Rails.cache.delete(ehr_tasks_key)
+    # Not clearing the cache here: fetch_tasks overwrites both keys once it
+    # succeeds, so deleting first only opens a window where the cache is empty
+    # for the whole refresh -- which is what made concurrent updates fail.
     success, result = fetch_tasks
 
     if success
@@ -103,10 +104,14 @@ class TasksController < ApplicationController
         [msg, t.id]
       end
     else
-      [false, "Failed to fetch referral tasks. Status: #{response.response[:code]} - #{response.response[:body]}"]
+      # `response` is not in scope here; referencing it raised a NameError on
+      # every poll against a server fetch_tasks could not read, which is what
+      # turned a bad server selection into a wedged dashboard.
       Rails.logger.error("Unable to fetch tasks: #{result}")
+
+      render json: { error: result } and return
     end
-    ActionCable.server.broadcast "notifications", { cp_task_notifications: @cp_task_notifications.to_json, ehr_task_notifications: @ehr_task_notifications.to_json }
+    ActionCable.server.broadcast "notifications", { cp_task_notifications: (@cp_task_notifications || []).to_json, ehr_task_notifications: (@ehr_task_notifications || []).to_json }
     render json: {
       active_cp_tasks: render_to_string(partial: "dashboard/cp_tasks_table", locals: { referrals: @active_cp_tasks, type: "active" }),
       completed_cp_tasks: render_to_string(partial: "dashboard/cp_tasks_table", locals: { referrals: @completed_cp_tasks, type: "completed" }),
@@ -118,6 +123,38 @@ class TasksController < ApplicationController
   end
 
   private
+
+  # Read a Task straight from the FHIR server. Returns nil when it is missing so
+  # callers can decide whether that is fatal.
+  def read_task(id)
+    return if id.blank?
+
+    response = get_cp_client.read(FHIR::Task, id)
+    return unless response.response[:code].to_i == 200
+
+    resource = response.resource
+    resource = resource&.entry&.first&.resource if resource.is_a?(FHIR::Bundle)
+    resource.is_a?(FHIR::Task) ? resource : nil
+  end
+
+  def read_task!(id)
+    read_task(id) || raise("Task #{id} was not found")
+  end
+
+  # The CP-side child Task created when a referral was forwarded to a CBO.
+  # Queried from the server so this does not depend on the polling cache either.
+  def child_cp_task(parent_task_id)
+    return if parent_task_id.blank?
+
+    bundle = get_cp_client.search(
+      FHIR::Task,
+      search: { parameters: { "part-of" => "Task/#{parent_task_id}" } }
+    ).resource
+    bundle&.entry&.map(&:resource)&.compact&.find { |t| t.is_a?(FHIR::Task) }
+  rescue => e
+    Rails.logger.error("Unable to look up child CP task for #{parent_task_id}: #{e.message}")
+    nil
+  end
 
   # The coordination platform is the Intermediary of the indirect referral
   # patterns, so what it posts to the referral target is a *derived* request,
